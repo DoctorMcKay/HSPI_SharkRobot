@@ -380,12 +380,12 @@ namespace HSPI_SharkRobot
 						// Figure out status
 						// TODO figure out disconnected
 						HsStatus status;
-						if (props.ChargingStatus) {
-							// We are currently charging
-							status = props.RechargingToResume ? HsStatus.ChargingToResume : HsStatus.Charging;
-						} else if (props.DockedStatus && props.BatteryCapacity == 100) {
+						if ((props.ChargingStatus || props.DockedStatus) && props.BatteryCapacity == 100 && !props.RechargingToResume) {
 							// We're docked and battery is full
 							status = HsStatus.FullyChargedOnDock;
+						} else if (props.ChargingStatus) {
+							// We are currently charging
+							status = props.RechargingToResume ? HsStatus.ChargingToResume : HsStatus.Charging;
 						} else if (props.OperatingMode == SharkOperatingMode.Running) {
 							// We're currently running
 							status = HsStatus.Running;
