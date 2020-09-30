@@ -32,7 +32,7 @@ namespace HSPI_SharkRobot
 		private bool _debugLogging = false;
 
 		protected override void Initialize() {
-			WriteLog(ELogType.Trace, "Initialize");
+			WriteLog(ELogType.Debug, "Initialize");
 			
 			// Build the settings page
 			PageFactory settingsPageFactory = PageFactory
@@ -282,53 +282,72 @@ namespace HSPI_SharkRobot
 			_pollTimer.Elapsed += async (object src, ElapsedEventArgs a) => {
 				_pollTimer = null;
 				WriteLog(ELogType.Trace, "Performing poll");
-				foreach (HsDeviceMap deviceMap in _devices) {
-					DeviceProperties props = await _client.GetDeviceProperties(deviceMap.SharkDevice.Dsn);
-					
-					// Update battery
-					HomeSeerSystem.UpdateFeatureValueByRef(deviceMap.HsFeatureRefBattery, props.BatteryCapacity);
-					HomeSeerSystem.UpdateFeatureValueStringByRef(deviceMap.HsFeatureRefBattery, props.BatteryCapacity + "%");
-					
-					// Update power mode
-					HomeSeerSystem.UpdateFeatureValueByRef(deviceMap.HsFeatureRefPowerMode, (double) props.PowerMode);
-					
-#if DEBUG
-					JavaScriptSerializer json = new JavaScriptSerializer();
-					WriteLog(ELogType.Debug, deviceMap.SharkDevice.Dsn + ": " + json.Serialize(props));
-#endif
-					
-					// Figure out status
-					// TODO figure out disconnected
-					HsStatus status;
-					if (props.ChargingStatus) {
-						// We are currently charging
-						status = props.RechargingToResume ? HsStatus.ChargingToResume : HsStatus.Charging;
-					} else if (props.DockedStatus && props.BatteryCapacity == 100) {
-						// We're docked and battery is full
-						status = HsStatus.FullyChargedOnDock;
-					} else if (props.OperatingMode == SharkOperatingMode.Running) {
-						// We're currently running
-						status = HsStatus.Running;
-					} else if (props.OperatingMode == SharkOperatingMode.SpotClean) {
-						// Spot clean mode
-						status = HsStatus.SpotClean;
-					} else if (props.OperatingMode == SharkOperatingMode.Dock && !props.DockedStatus) {
-						// Returning to dock
-						status = HsStatus.ReturnToDock;
-					} else if (props.ErrorCode == 5) {
-						// Stuck (could be other error codes too)
-						status = HsStatus.Stuck;
-					} else if (props.ErrorCode > 0) {
-						// Unknown error code
-						status = HsStatus.UnknownError;
-					} else {
-						// No status matched, just fall back to "not running"
-						status = HsStatus.NotRunning;
-					}
+				
+				for (int i = 0; i < _devices.Length; i++) {
+					try {
+						HsDeviceMap deviceMap = _devices[i];
+						DeviceProperties props = await _client.GetDeviceProperties(deviceMap.SharkDevice.Dsn);
 
-					HomeSeerSystem.UpdateFeatureValueByRef(deviceMap.HsFeatureRefStatus, (double) status);
-					HomeSeerSystem.UpdateFeatureValueStringByRef(deviceMap.HsFeatureRefStatus,
-						status == HsStatus.UnknownError ? "Unknown Error " + props.ErrorCode : "");
+						WriteLog(ELogType.Debug,
+							$"Retrieved properties for \"{props.DeviceName}\" ({deviceMap.SharkDevice.Dsn})");
+
+						// Update battery
+						HomeSeerSystem.UpdateFeatureValueByRef(deviceMap.HsFeatureRefBattery, props.BatteryCapacity);
+						HomeSeerSystem.UpdateFeatureValueStringByRef(deviceMap.HsFeatureRefBattery,
+							props.BatteryCapacity + "%");
+
+						// Update power mode
+						HomeSeerSystem.UpdateFeatureValueByRef(deviceMap.HsFeatureRefPowerMode,
+							(double) props.PowerMode);
+
+#if DEBUG
+						JavaScriptSerializer json = new JavaScriptSerializer();
+						WriteLog(ELogType.Debug, deviceMap.SharkDevice.Dsn + ": " + json.Serialize(props));
+#endif
+
+						// Figure out status
+						// TODO figure out disconnected
+						HsStatus status;
+						if (props.ChargingStatus) {
+							// We are currently charging
+							status = props.RechargingToResume ? HsStatus.ChargingToResume : HsStatus.Charging;
+						} else if (props.DockedStatus && props.BatteryCapacity == 100) {
+							// We're docked and battery is full
+							status = HsStatus.FullyChargedOnDock;
+						} else if (props.OperatingMode == SharkOperatingMode.Running) {
+							// We're currently running
+							status = HsStatus.Running;
+						} else if (props.OperatingMode == SharkOperatingMode.SpotClean) {
+							// Spot clean mode
+							status = HsStatus.SpotClean;
+						} else if (props.OperatingMode == SharkOperatingMode.Dock && !props.DockedStatus) {
+							// Returning to dock
+							status = HsStatus.ReturnToDock;
+						} else if (props.ErrorCode == 5) {
+							// Stuck (could be other error codes too)
+							status = HsStatus.Stuck;
+						} else if (props.ErrorCode > 0) {
+							// Unknown error code
+							status = HsStatus.UnknownError;
+						} else {
+							// No status matched, just fall back to "not running"
+							status = HsStatus.NotRunning;
+						}
+
+						HomeSeerSystem.UpdateFeatureValueByRef(deviceMap.HsFeatureRefStatus, (double) status);
+						HomeSeerSystem.UpdateFeatureValueStringByRef(deviceMap.HsFeatureRefStatus,
+							status == HsStatus.UnknownError ? "Unknown Error " + props.ErrorCode : "");
+
+						deviceMap.LastProperties = props;
+					} catch (Exception ex) {
+						string errMsg = ex.Message;
+						Exception inner = ex;
+						while ((inner = inner.InnerException) != null) {
+							errMsg = $"{errMsg} [{inner.Message}]";
+						}
+						
+						WriteLog(ELogType.Error, $"Unable to retrieve properties for device {_devices[i].SharkDevice.Dsn}: {errMsg}");
+					}
 				}
 				
 				_enqueuePoll();
@@ -350,6 +369,11 @@ namespace HSPI_SharkRobot
 			string type = logType.ToString().ToLower();
 			Console.WriteLine($"[{type}] {message}");
 #else
+			if (logType == ELogType.Trace) {
+				// Don't record Trace events in production builds even if debug logging is enabled
+				return;
+			}
+
 			bool isDebugMode = _debugLogging;
 #endif
 

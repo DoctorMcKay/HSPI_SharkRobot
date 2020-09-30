@@ -52,7 +52,7 @@ namespace HSPI_SharkRobot {
 			req.Content = new StringContent(_jsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
 
 			try {
-				_hs.WriteLog(ELogType.Trace, "Sending password login request");
+				_hs.WriteLog(ELogType.Debug, "Sending password login request");
 				HttpResponseMessage res = await _httpClient.SendAsync(req);
 				HttpStatusCode statusCode = res.StatusCode;
 
@@ -102,7 +102,7 @@ namespace HSPI_SharkRobot {
 			req.Content = new StringContent(_jsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
 
 			try {
-				_hs.WriteLog(ELogType.Trace, "Sending token login request");
+				_hs.WriteLog(ELogType.Debug, "Sending token login request");
 				HttpResponseMessage res = await _httpClient.SendAsync(req);
 				HttpStatusCode statusCode = res.StatusCode;
 
@@ -126,7 +126,7 @@ namespace HSPI_SharkRobot {
 				}
 
 				TokenExpirationTime = DateTime.Now.AddSeconds((double) expiresIn);
-				_hs.WriteLog(ELogType.Trace, $"New token expires in {expiresIn} seconds. Current time is {DateTime.Now}, expires at {TokenExpirationTime}");
+				_hs.WriteLog(ELogType.Debug, $"New token expires in {expiresIn} seconds. Current time is {DateTime.Now}, expires at {TokenExpirationTime}");
 				return "";
 			} catch (Exception ex) {
 				string errMsg = ex.Message;
@@ -237,6 +237,18 @@ namespace HSPI_SharkRobot {
 					
 					case "GET_Recharging_To_Resume":
 						output.RechargingToResume = prop["property"]["value"] != 0;
+						break;
+					
+					case "SET_Find_Device":
+						output.SetFindDeviceKey = prop["property"]["key"];
+						break;
+					
+					case "SET_Operating_Mode":
+						output.SetOperatingModeKey = prop["property"]["key"];
+						break;
+					
+					case "SET_Power_Mode":
+						output.SetPowerModeKey = prop["property"]["key"];
 						break;
 				}
 			}

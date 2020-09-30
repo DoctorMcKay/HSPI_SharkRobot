@@ -10,5 +10,10 @@ namespace HSPI_SharkRobot.DataContainers {
 		public bool DockedStatus;
 		public int? ErrorCode;
 		public bool RechargingToResume;
+		
+		// Setter properties' keys
+		public int SetFindDeviceKey;
+		public int SetOperatingModeKey;
+		public int SetPowerModeKey;
 	}
 }
