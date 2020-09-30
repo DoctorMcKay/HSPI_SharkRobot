@@ -255,5 +255,35 @@ namespace HSPI_SharkRobot {
 
 			return output;
 		}
+
+		public async Task<string> SetPropertyInt(int propertyKey, int desiredValue) {
+			SetPropertyIntBody body = new SetPropertyIntBody {
+				datapoint = new SetPropertyIntBody.DatapointValue {
+					value = desiredValue
+				}
+			};
+			
+			_hs.WriteLog(ELogType.Trace, $"Setting property {propertyKey} value to int {desiredValue}");
+			
+			HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, $"https://ads-field.aylanetworks.com/apiv1/properties/{propertyKey}/datapoints.json");
+			req.Headers.Add("Authorization", "auth_token " + AccessToken);
+			req.Content = new StringContent(_jsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+			
+			HttpResponseMessage res = await _httpClient.SendAsync(req);
+			HttpStatusCode statusCode = res.StatusCode;
+			
+			_hs.WriteLog(ELogType.Trace, $"Setting property {propertyKey} status: {statusCode}");
+			
+			if (!res.IsSuccessStatusCode) {
+				req.Dispose();
+				res.Dispose();
+				return $"Unsuccessful status {statusCode}";
+			}
+
+			req.Dispose();
+			res.Dispose();
+			
+			return "";
+		}
 	}
 }

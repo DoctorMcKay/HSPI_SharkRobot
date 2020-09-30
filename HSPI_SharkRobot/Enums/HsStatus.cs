@@ -13,6 +13,8 @@
 		
 		Stuck = 20,
 		
-		UnknownError = 99
+		UnknownError = 99,
+		
+		ControlOnlyLocate = 100
 	}
 }

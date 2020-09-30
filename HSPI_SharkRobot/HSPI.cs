@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Dynamic;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using System.Timers;
 using System.Web.Script.Serialization;
 using System.Web.UI;
@@ -10,6 +13,7 @@ using HomeSeer.Jui.Types;
 using HomeSeer.Jui.Views;
 using HomeSeer.PluginSdk;
 using HomeSeer.PluginSdk.Devices;
+using HomeSeer.PluginSdk.Devices.Controls;
 using HomeSeer.PluginSdk.Devices.Identification;
 using HomeSeer.PluginSdk.Logging;
 using HSPI_SharkRobot.DataContainers;
@@ -60,11 +64,71 @@ namespace HSPI_SharkRobot
 				_client.AccessToken = accessToken;
 				_client.RefreshToken = refreshToken;
 				_client.TokenExpirationTime = DateTime.Now;
-				RefreshLogin();
+				_refreshLogin();
 			}
 		}
 
-		private async void RefreshLogin() {
+		public override void SetIOMulti(List<ControlEvent> colSend) {
+			WriteLog(ELogType.Trace, "SetIOMulti");
+			
+			foreach (ControlEvent ce in colSend) {
+				HsFeature feature = HomeSeerSystem.GetFeatureByRef(ce.TargetRef);
+				string[] addressParts = feature.Address.Split(':');
+				
+				HsDeviceMap? nullMap = null;
+				foreach (HsDeviceMap devMap in _devices) {
+					if (devMap.SharkDevice.Dsn == addressParts[1]) {
+						nullMap = devMap;
+						break;
+					}
+				}
+
+				if (nullMap == null) {
+					WriteLog(ELogType.Warning, $"Unable to find device with DSN {addressParts[1]} to control for ref {ce.TargetRef}");
+					continue;
+				}
+
+				HsDeviceMap map = (HsDeviceMap) nullMap;
+
+				int propKey = 0;
+				int propVal = 0;
+
+				switch (addressParts[2]) {
+					case "Status":
+						switch ((HsStatus) ce.ControlValue) {
+							case HsStatus.ControlOnlyLocate:
+								propKey = map.LastProperties?.SetFindDeviceKey ?? 0;
+								propVal = 1;
+								break;
+							
+							case HsStatus.Running:
+								propKey = map.LastProperties?.SetOperatingModeKey ?? 0;
+								propVal = (int) SharkOperatingMode.Running;
+								break;
+							
+							case HsStatus.NotRunning:
+								propKey = map.LastProperties?.SetOperatingModeKey ?? 0;
+								propVal = (int) SharkOperatingMode.NotRunning;
+								break;
+							
+							case HsStatus.ReturnToDock:
+								propKey = map.LastProperties?.SetOperatingModeKey ?? 0;
+								propVal = (int) SharkOperatingMode.Dock;
+								break;
+						}
+
+						break;
+				}
+
+				if (propKey == 0) {
+					WriteLog(ELogType.Warning, $"Unknown property key for ref {ce.TargetRef}");
+				} else {
+					_client.SetPropertyInt(propKey, propVal).ContinueWith((task) => { });
+				}
+			}
+		}
+
+		private async void _refreshLogin() {
 			// Cancel polling
 			_pollTimer?.Stop();
 			
@@ -96,10 +160,14 @@ namespace HSPI_SharkRobot
 				if (hsDevice == null) {
 					_devices[i] = _createHsDevice(dev);
 				} else {
-					HsDeviceMap map = new HsDeviceMap {SharkDevice = dev, HsDeviceRef = hsDevice.Ref};
+					HsDeviceMap map = new HsDeviceMap {
+						SharkDevice = dev,
+						HsDeviceRef = hsDevice.Ref,
+						LastProperties = null,
+						HsFeatureRefStatus = HomeSeerSystem.GetFeatureByAddress($"Shark:{dev.Dsn}:Status").Ref,
+						HsFeatureRefBattery = HomeSeerSystem.GetFeatureByAddress($"Shark:{dev.Dsn}:Battery").Ref
+					};
 					// TODO if we release, don't crash if the features don't exist
-					map.HsFeatureRefStatus = HomeSeerSystem.GetFeatureByAddress($"Shark:{dev.Dsn}:Status").Ref;
-					map.HsFeatureRefBattery = HomeSeerSystem.GetFeatureByAddress($"Shark:{dev.Dsn}:Battery").Ref;
 					_devices[i] = map;
 				}
 			}
@@ -120,7 +188,11 @@ namespace HSPI_SharkRobot
 				.AddGraphicForValue("/images/HomeSeer/status/record.png", (double) HsStatus.SpotClean, "Spot Clean")
 				.AddGraphicForValue("/images/HomeSeer/status/refresh.png", (double) HsStatus.ReturnToDock, "Return To Dock")
 				.AddGraphicForValue("/images/HomeSeer/status/alarm.png", (double) HsStatus.Stuck, "Stuck")
-				.AddGraphicForValue("/images/HomeSeer/status/alarm.png", (double) HsStatus.UnknownError, "Unknown Error");
+				.AddGraphicForValue("/images/HomeSeer/status/alarm.png", (double) HsStatus.UnknownError, "Unknown Error")
+				.AddButton((double) HsStatus.Running, "Clean")
+				.AddButton((double) HsStatus.NotRunning, "Pause")
+				.AddButton((double) HsStatus.ReturnToDock, "Dock")
+				.AddButton((double) HsStatus.ControlOnlyLocate, "Locate");
 			
 			FeatureFactory powerModeFactory = FeatureFactory.CreateFeature(Id)
 				.WithName("Power Mode")
@@ -147,7 +219,7 @@ namespace HSPI_SharkRobot
 			HomeSeerSystem.UpdatePropertyByRef(devRef, EProperty.Address, $"Shark:{dev.Dsn}");	
 			HsDevice hsDevice = HomeSeerSystem.GetDeviceWithFeaturesByRef(devRef);
 
-			HsDeviceMap map = new HsDeviceMap {SharkDevice = dev, HsDeviceRef = devRef};
+			HsDeviceMap map = new HsDeviceMap {SharkDevice = dev, HsDeviceRef = devRef, LastProperties = null};
 
 			foreach (HsFeature feature in hsDevice.Features) {
 				HomeSeerSystem.UpdatePropertyByRef(feature.Ref, EProperty.Address, $"Shark:{dev.Dsn}:{feature.Name.Replace(" ", "")}");
@@ -255,7 +327,7 @@ namespace HSPI_SharkRobot
 
 			_refreshTimer.Elapsed += (object src, ElapsedEventArgs a) => {
 				_refreshTimer = null;
-				RefreshLogin();
+				_refreshLogin();
 			};
 		}
 
@@ -338,7 +410,7 @@ namespace HSPI_SharkRobot
 						HomeSeerSystem.UpdateFeatureValueStringByRef(deviceMap.HsFeatureRefStatus,
 							status == HsStatus.UnknownError ? "Unknown Error " + props.ErrorCode : "");
 
-						deviceMap.LastProperties = props;
+						_devices[i].LastProperties = props;
 					} catch (Exception ex) {
 						string errMsg = ex.Message;
 						Exception inner = ex;
