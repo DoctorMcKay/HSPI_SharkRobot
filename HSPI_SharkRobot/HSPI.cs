@@ -259,10 +259,25 @@ namespace HSPI_SharkRobot
 			};
 		}
 
-		private void _enqueuePoll() {
-			WriteLog(ELogType.Trace, "Enqueueing poll");
-			
-			_pollTimer?.Stop();
+		private async void _enqueuePoll() {
+			if (DateTime.Now.AddMinutes(5).CompareTo(_client.TokenExpirationTime) >= 0) {
+				// Token expires in 5 minutes or less
+				WriteLog(ELogType.Debug, $"Refreshing access token, which expires {_client.TokenExpirationTime}");
+				try {
+					string errMsg = await _client.LoginWithTokens();
+					if (errMsg.Length > 0) {
+						WriteLog(ELogType.Error, "Unable to refresh access token: " + errMsg);
+					} else {
+						WriteLog(ELogType.Info, "Refreshed access token successfully");
+					}
+				} catch (Exception ex) {
+					WriteLog(ELogType.Error, "Unable to refresh access token: " + ex.Message);
+				}
+			}
+
+			WriteLog(ELogType.Trace, $"Enqueueing poll (access token expires {_client.TokenExpirationTime})");
+
+		_pollTimer?.Stop();
 			_pollTimer = new Timer(10000) {Enabled = true, AutoReset = false};
 			_pollTimer.Elapsed += async (object src, ElapsedEventArgs a) => {
 				_pollTimer = null;

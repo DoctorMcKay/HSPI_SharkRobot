@@ -126,6 +126,7 @@ namespace HSPI_SharkRobot {
 				}
 
 				TokenExpirationTime = DateTime.Now.AddSeconds((double) expiresIn);
+				_hs.WriteLog(ELogType.Trace, $"New token expires in {expiresIn} seconds. Current time is {DateTime.Now}, expires at {TokenExpirationTime}");
 				return "";
 			} catch (Exception ex) {
 				string errMsg = ex.Message;
