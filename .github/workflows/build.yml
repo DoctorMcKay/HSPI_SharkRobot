@@ -1,0 +1,40 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v1
+    
+    - name: Setup msbuild
+      uses: warrenbuckley/Setup-MSBuild@v1
+      
+    - name: Setup nuget
+      uses: warrenbuckley/Setup-Nuget@v1
+      
+    - name: Nuget restore
+      run: nuget restore HSPI_SharkRobot.sln
+      
+    - name: MSBuild
+      run: |
+        msbuild /p:Configuration=Debug HSPI_SharkRobot.sln
+        msbuild /p:Configuration=Release HSPI_SharkRobot.sln
+        
+    - name: Stage artifacts
+      run: |
+        mkdir artifacts
+        cp HSPI_SharkRobot\bin\Release\HSPI_SharkRobot.exe artifacts\HSPI_SharkRobot.exe
+        mkdir "artifacts\Debug Build"
+        cp HSPI_SharkRobot\bin\Debug\HSPI_SharkRobot.exe "artifacts\Debug Build\HSPI_SharkRobot.exe"
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        name: Plugin
+        path: artifacts
+
+
