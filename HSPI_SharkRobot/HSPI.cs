@@ -267,9 +267,6 @@ namespace HSPI_SharkRobot
 						return true; // no change
 					}
 
-					_loginTimer?.Stop();
-					_loginTimer = null;
-					
 					HomeSeerSystem.SaveINISetting("Credentials", "email", email, SettingsFileName);
 					return true;
 				
