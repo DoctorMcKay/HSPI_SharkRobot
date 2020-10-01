@@ -28,6 +28,7 @@ jobs:
       run: |
         mkdir artifacts
         cp HSPI_SharkRobot\bin\Release\HSPI_SharkRobot.exe artifacts\HSPI_SharkRobot.exe
+        cp HSPI_SharkRobot.exe.config artifacts\HSPI_SharkRobot.exe.config
         mkdir "artifacts\Debug Build"
         cp HSPI_SharkRobot\bin\Debug\HSPI_SharkRobot.exe "artifacts\Debug Build\HSPI_SharkRobot.exe"
     
