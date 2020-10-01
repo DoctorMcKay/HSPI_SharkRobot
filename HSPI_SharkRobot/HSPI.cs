@@ -313,6 +313,8 @@ namespace HSPI_SharkRobot
 
 				HomeSeerSystem.SaveINISetting("Credentials", "access_token", _client.AccessToken, SettingsFileName);
 				HomeSeerSystem.SaveINISetting("Credentials", "refresh_token", _client.RefreshToken, SettingsFileName);
+				
+				_enqueuePoll(true);
 			};
 		}
 
