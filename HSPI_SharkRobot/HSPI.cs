@@ -1,24 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Dynamic;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
 using System.Timers;
 using System.Web.Script.Serialization;
-using System.Web.UI;
 using HomeSeer.Jui.Types;
 using HomeSeer.Jui.Views;
 using HomeSeer.PluginSdk;
 using HomeSeer.PluginSdk.Devices;
 using HomeSeer.PluginSdk.Devices.Controls;
-using HomeSeer.PluginSdk.Devices.Identification;
 using HomeSeer.PluginSdk.Logging;
 using HSPI_SharkRobot.DataContainers;
 using HSPI_SharkRobot.Enums;
-using Timer = System.Timers.Timer;
 
 namespace HSPI_SharkRobot
 {
@@ -68,7 +60,7 @@ namespace HSPI_SharkRobot
 			}
 		}
 
-		public override void SetIOMulti(List<ControlEvent> colSend) {
+		public override async void SetIOMulti(List<ControlEvent> colSend) {
 			WriteLog(ELogType.Trace, "SetIOMulti");
 			
 			foreach (ControlEvent ce in colSend) {
@@ -118,12 +110,17 @@ namespace HSPI_SharkRobot
 						}
 
 						break;
+					
+					case "PowerMode":
+						propKey = map.LastProperties?.SetPowerModeKey ?? 0;
+						propVal = (int) ce.ControlValue;
+						break;
 				}
 
 				if (propKey == 0) {
 					WriteLog(ELogType.Warning, $"Unknown property key for ref {ce.TargetRef}");
 				} else {
-					_client.SetPropertyInt(propKey, propVal).ContinueWith((task) => { });
+					await _client.SetPropertyInt(propKey, propVal);
 				}
 			}
 		}
@@ -165,6 +162,7 @@ namespace HSPI_SharkRobot
 						HsDeviceRef = hsDevice.Ref,
 						LastProperties = null,
 						HsFeatureRefStatus = HomeSeerSystem.GetFeatureByAddress($"Shark:{dev.Dsn}:Status").Ref,
+						HsFeatureRefPowerMode = HomeSeerSystem.GetFeatureByAddress($"Shark:{dev.Dsn}:PowerMode").Ref,
 						HsFeatureRefBattery = HomeSeerSystem.GetFeatureByAddress($"Shark:{dev.Dsn}:Battery").Ref
 					};
 					// TODO if we release, don't crash if the features don't exist
@@ -172,7 +170,7 @@ namespace HSPI_SharkRobot
 				}
 			}
 
-			_enqueuePoll();
+			_enqueuePoll(true);
 		}
 
 		private HsDeviceMap _createHsDevice(Device dev) {
@@ -198,7 +196,10 @@ namespace HSPI_SharkRobot
 				.WithName("Power Mode")
 				.AddGraphicForValue("/images/HomeSeer/status/fan1.png", (double) SharkPowerMode.Eco, "Eco")
 				.AddGraphicForValue("/images/HomeSeer/status/fan2.png", (double) SharkPowerMode.Normal, "Normal")
-				.AddGraphicForValue("/images/HomeSeer/status/fan3.png", (double) SharkPowerMode.Max, "Max");
+				.AddGraphicForValue("/images/HomeSeer/status/fan3.png", (double) SharkPowerMode.Max, "Max")
+				.AddButton((double) SharkPowerMode.Eco, "Eco")
+				.AddButton((double) SharkPowerMode.Normal, "Normal")
+				.AddButton((double) SharkPowerMode.Max, "Max");
 			
 			FeatureFactory batteryFactory = FeatureFactory.CreateFeature(Id)
 				.WithName("Battery")
@@ -331,7 +332,7 @@ namespace HSPI_SharkRobot
 			};
 		}
 
-		private async void _enqueuePoll() {
+		private async void _enqueuePoll(bool immediate = false) {
 			if (DateTime.Now.AddMinutes(5).CompareTo(_client.TokenExpirationTime) >= 0) {
 				// Token expires in 5 minutes or less
 				WriteLog(ELogType.Debug, $"Refreshing access token, which expires {_client.TokenExpirationTime}");
@@ -349,8 +350,8 @@ namespace HSPI_SharkRobot
 
 			WriteLog(ELogType.Trace, $"Enqueueing poll (access token expires {_client.TokenExpirationTime})");
 
-		_pollTimer?.Stop();
-			_pollTimer = new Timer(10000) {Enabled = true, AutoReset = false};
+			_pollTimer?.Stop();
+			_pollTimer = new Timer(immediate ? 1000 : 10000) {Enabled = true, AutoReset = false};
 			_pollTimer.Elapsed += async (object src, ElapsedEventArgs a) => {
 				_pollTimer = null;
 				WriteLog(ELogType.Trace, "Performing poll");
@@ -365,12 +366,10 @@ namespace HSPI_SharkRobot
 
 						// Update battery
 						HomeSeerSystem.UpdateFeatureValueByRef(deviceMap.HsFeatureRefBattery, props.BatteryCapacity);
-						HomeSeerSystem.UpdateFeatureValueStringByRef(deviceMap.HsFeatureRefBattery,
-							props.BatteryCapacity + "%");
+						HomeSeerSystem.UpdateFeatureValueStringByRef(deviceMap.HsFeatureRefBattery, props.BatteryCapacity + "%");
 
 						// Update power mode
-						HomeSeerSystem.UpdateFeatureValueByRef(deviceMap.HsFeatureRefPowerMode,
-							(double) props.PowerMode);
+						HomeSeerSystem.UpdateFeatureValueByRef(deviceMap.HsFeatureRefPowerMode, (double) props.PowerMode);
 
 #if DEBUG
 						JavaScriptSerializer json = new JavaScriptSerializer();
