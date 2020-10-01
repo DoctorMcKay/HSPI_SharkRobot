@@ -57,6 +57,8 @@ namespace HSPI_SharkRobot
 				_client.RefreshToken = refreshToken;
 				_client.TokenExpirationTime = DateTime.Now;
 				_refreshLogin();
+			} else {
+				Status = PluginStatus.Critical("No credentials configured");
 			}
 		}
 
@@ -420,6 +422,8 @@ namespace HSPI_SharkRobot
 						WriteLog(ELogType.Error, $"Unable to retrieve properties for device {_devices[i].SharkDevice.Dsn}: {errMsg}");
 					}
 				}
+				
+				Status = PluginStatus.Ok();
 				
 				_enqueuePoll();
 			};
