@@ -15,8 +15,7 @@ using HSPI_SharkRobot.Enums;
 namespace HSPI_SharkRobot
 {
 	// ReSharper disable once InconsistentNaming
-	public class HSPI : AbstractPlugin
-	{
+	public class HSPI : AbstractPlugin {
 		public override string Name { get; } = "Shark Robot";
 		public override string Id { get; } = "SharkRobot";
 
@@ -411,7 +410,7 @@ namespace HSPI_SharkRobot
 						} else if (props.OperatingMode == SharkOperatingMode.Dock && !props.DockedStatus) {
 							// Returning to dock
 							status = HsStatus.ReturnToDock;
-						} else if (props.ErrorCode == 5 || props.ErrorCode == 8) {
+						} else if (props.ErrorCode == 5 || props.ErrorCode == 6 || props.ErrorCode == 8) {
 							// Stuck (could be other error codes too)
 							status = HsStatus.Stuck;
 						} else if (props.ErrorCode > 0) {
