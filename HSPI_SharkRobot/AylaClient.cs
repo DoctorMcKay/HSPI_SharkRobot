@@ -1,21 +1,17 @@
 ﻿using System;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Runtime.Remoting.Messaging;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using HomeSeer.PluginSdk.Logging;
 using HSPI_SharkRobot.DataContainers;
 using HSPI_SharkRobot.Enums;
-using Microsoft.SqlServer.Server;
 
 namespace HSPI_SharkRobot {
 	public class AylaClient {
-		private const string APP_ID = "Shark-Android-field-id";
-		private const string APP_SECRET = "Shark-Android-field-Wv43MbdXRM297HUHotqe6lU1n-w";
+		private const string AppId = "Shark-Android-field-id";
+		private const string AppSecret = "Shark-Android-field-Wv43MbdXRM297HUHotqe6lU1n-w";
 
 		public string AccessToken;
 		public string RefreshToken;
@@ -40,8 +36,8 @@ namespace HSPI_SharkRobot {
 					email = email,
 					password = password,
 					application = new EmailPasswordLoginBody.EmailPasswordUser.ApplicationCredentials {
-						app_id = APP_ID,
-						app_secret = APP_SECRET
+						app_id = AppId,
+						app_secret = AppSecret
 					}
 				}
 			};

@@ -22,11 +22,11 @@ namespace HSPI_SharkRobot
 
 		private AylaClient _client;
 		private HsDeviceMap[] _devices;
-		private Timer _loginTimer = null;
-		private Timer _refreshTimer = null;
-		private Timer _pollTimer = null;
+		private Timer _loginTimer;
+		private Timer _refreshTimer;
+		private Timer _pollTimer;
 		private DateTime _lastTokenRefresh;
-		private bool _debugLogging = false;
+		private bool _debugLogging;
 
 		public HSPI() {
 			_lastTokenRefresh = DateTime.Now;
@@ -326,7 +326,7 @@ namespace HSPI_SharkRobot
 				AutoReset = false
 			};
 
-			_loginTimer.Elapsed += async (object src, ElapsedEventArgs a) => {
+			_loginTimer.Elapsed += async (src, arg) => {
 				_loginTimer = null;
 
 				string email = HomeSeerSystem.GetINISetting("Credentials", "email", "", SettingsFileName);
@@ -356,7 +356,7 @@ namespace HSPI_SharkRobot
 				AutoReset = false
 			};
 
-			_refreshTimer.Elapsed += (object src, ElapsedEventArgs a) => {
+			_refreshTimer.Elapsed += (src, arg) => {
 				_refreshTimer = null;
 				_refreshLogin();
 			};
@@ -382,7 +382,7 @@ namespace HSPI_SharkRobot
 
 			_pollTimer?.Stop();
 			_pollTimer = new Timer(immediate ? 1000 : 10000) {Enabled = true, AutoReset = false};
-			_pollTimer.Elapsed += async (object src, ElapsedEventArgs a) => {
+			_pollTimer.Elapsed += async (src, arg) => {
 				_pollTimer = null;
 				WriteLog(ELogType.Trace, "Performing poll");
 
