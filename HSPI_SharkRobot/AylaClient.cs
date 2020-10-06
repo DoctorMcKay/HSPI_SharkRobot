@@ -227,8 +227,19 @@ namespace HSPI_SharkRobot {
 						output.RechargingToResume = prop["property"]["value"] != 0;
 						break;
 					
-					case "Mobile_App_Room_Definition":
-						output.MobileAppRoomDefinition = prop["property"]["value"];
+					case "GET_Robot_Room_List":
+						string joinedList = prop["property"]["value"];
+						if (joinedList != null) {
+							string[] list = joinedList.Split(':');
+							output.RoomList = new RoomList {
+								RoomListId = list[0],
+								RoomNames = new string[list.Length - 1]
+							};
+
+							for (int i = 1; i < list.Length; i++) {
+								output.RoomList.Value.RoomNames[i - 1] = list[i];
+							}
+						}
 						break;
 					
 					case "SET_Find_Device":
@@ -276,22 +287,6 @@ namespace HSPI_SharkRobot {
 			res.Dispose();
 			
 			return "";
-		}
-
-		public async Task<string[]> GetRoomList(string dsn) {
-			DeviceProperties props = await GetDeviceProperties(dsn);
-			if (props.MobileAppRoomDefinition == null) {
-				throw new Exception("No mobile app room definition found");
-			}
-
-			dynamic datapoint = _jsonSerializer.DeserializeObject(await (await _getUrl(props.MobileAppRoomDefinition)).Content.ReadAsStringAsync());
-			RoomDefinitions defs = _jsonSerializer.Deserialize(await (await _getUrl(datapoint["datapoint"]["file"], false)).Content.ReadAsStringAsync(), typeof(RoomDefinitions));
-			string[] roomNames = new string[defs.goZones.Length];
-			for (int i = 0; i < defs.goZones.Length; i++) {
-				roomNames[i] = defs.goZones[i].name;
-			}
-
-			return roomNames;
 		}
 
 		private async Task<HttpResponseMessage> _getUrl(string url, bool withAuth = true) {

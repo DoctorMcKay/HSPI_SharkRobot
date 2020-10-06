@@ -60,7 +60,7 @@
         <Compile Include="DataContainers\DeviceProperties.cs" />
         <Compile Include="DataContainers\EmailPasswordLoginBody.cs" />
         <Compile Include="DataContainers\HsDeviceMap.cs" />
-        <Compile Include="DataContainers\RoomDefinitions.cs" />
+        <Compile Include="DataContainers\RoomList.cs" />
         <Compile Include="DataContainers\SetPropertyIntBody.cs" />
         <Compile Include="DataContainers\TokenLoginBody.cs" />
         <Compile Include="Enums\HsStatus.cs" />
