@@ -173,16 +173,14 @@ namespace HSPI_SharkRobot
 				if (hsDevice == null) {
 					_devices[i] = _createHsDevice(dev);
 				} else {
-					HsDeviceMap map = new HsDeviceMap {
+					_devices[i] = _createHsDeviceMissingFeatures(new HsDeviceMap {
 						SharkDevice = dev,
 						HsDeviceRef = hsDevice.Ref,
 						LastProperties = null,
-						HsFeatureRefStatus = HomeSeerSystem.GetFeatureByAddress($"Shark:{dev.Dsn}:Status").Ref,
-						HsFeatureRefPowerMode = HomeSeerSystem.GetFeatureByAddress($"Shark:{dev.Dsn}:PowerMode").Ref,
-						HsFeatureRefBattery = HomeSeerSystem.GetFeatureByAddress($"Shark:{dev.Dsn}:Battery").Ref
-					};
-					// TODO if we release, don't crash if the features don't exist
-					_devices[i] = map;
+						HsFeatureRefStatus = HomeSeerSystem.GetFeatureByAddress($"Shark:{dev.Dsn}:Status")?.Ref,
+						HsFeatureRefPowerMode = HomeSeerSystem.GetFeatureByAddress($"Shark:{dev.Dsn}:PowerMode")?.Ref,
+						HsFeatureRefBattery = HomeSeerSystem.GetFeatureByAddress($"Shark:{dev.Dsn}:Battery")?.Ref
+					});
 				}
 			}
 
@@ -190,69 +188,80 @@ namespace HSPI_SharkRobot
 		}
 
 		private HsDeviceMap _createHsDevice(Device dev) {
-			FeatureFactory statusFactory = FeatureFactory.CreateFeature(Id)
-				.WithName("Status")
-				.AddGraphicForValue("/images/HomeSeer/status/off.gif", (double) HsStatus.Disconnected, "Offline")
-				.AddGraphicForValue("/images/HomeSeer/status/electricity.gif", (double) HsStatus.Charging, "Charging")
-				.AddGraphicForValue("/images/HomeSeer/status/ok.png", (double) HsStatus.FullyChargedOnDock, "Resting on Dock")
-				.AddGraphicForValue("/images/HomeSeer/status/electricity.gif", (double) HsStatus.ChargingToResume, "Charging to Resume")
-				.AddGraphicForValue("/images/HomeSeer/status/eject.png", (double) HsStatus.Evacuating, "Evacuating")
-				.AddGraphicForValue("/images/HomeSeer/status/pause.png", (double) HsStatus.NotRunning, "Paused")
-				.AddGraphicForValue("/images/HomeSeer/status/on.gif", (double) HsStatus.Running, "Cleaning")
-				.AddGraphicForValue("/images/HomeSeer/status/record.png", (double) HsStatus.SpotClean, "Spot Clean")
-				.AddGraphicForValue("/images/HomeSeer/status/refresh.png", (double) HsStatus.ReturnToDock, "Return To Dock")
-				.AddGraphicForValue("/images/HomeSeer/status/alarm.png", (double) HsStatus.Stuck, "Stuck")
-				.AddGraphicForValue("/images/HomeSeer/status/alarm.png", (double) HsStatus.UnknownError, "Unknown Error")
-				.AddButton((double) HsStatus.Running, "Clean")
-				.AddButton((double) HsStatus.NotRunning, "Pause")
-				.AddButton((double) HsStatus.ReturnToDock, "Dock")
-				.AddButton((double) HsStatus.ControlOnlyLocate, "Locate");
-			
-			FeatureFactory powerModeFactory = FeatureFactory.CreateFeature(Id)
-				.WithName("Power Mode")
-				.AddGraphicForValue("/images/HomeSeer/status/fan1.png", (double) SharkPowerMode.Eco, "Eco")
-				.AddGraphicForValue("/images/HomeSeer/status/fan2.png", (double) SharkPowerMode.Normal, "Normal")
-				.AddGraphicForValue("/images/HomeSeer/status/fan3.png", (double) SharkPowerMode.Max, "Max")
-				.AddButton((double) SharkPowerMode.Eco, "Eco")
-				.AddButton((double) SharkPowerMode.Normal, "Normal")
-				.AddButton((double) SharkPowerMode.Max, "Max");
-			
-			FeatureFactory batteryFactory = FeatureFactory.CreateFeature(Id)
-				.WithName("Battery")
-				.WithMiscFlags(EMiscFlag.StatusOnly)
-				.AddGraphicForRange("/images/HomeSeer/status/battery_0.png", 0, 3)
-				.AddGraphicForRange("/images/HomeSeer/status/battery_25.png", 4, 36)
-				.AddGraphicForRange("/images/HomeSeer/status/battery_50.png", 37, 64)
-				.AddGraphicForRange("/images/HomeSeer/status/battery_75.png", 65, 89)
-				.AddGraphicForRange("/images/HomeSeer/status/battery_100.png", 90, 100);
-			
 			DeviceFactory deviceFactory = DeviceFactory.CreateDevice(Id)
-				.WithName(dev.ProductName)
-				.WithFeature(statusFactory)
-				.WithFeature(powerModeFactory)
-				.WithFeature(batteryFactory);
+				.WithName(dev.ProductName);
 
 			int devRef = HomeSeerSystem.CreateDevice(deviceFactory.PrepareForHs());
-			HomeSeerSystem.UpdatePropertyByRef(devRef, EProperty.Address, $"Shark:{dev.Dsn}");	
-			HsDevice hsDevice = HomeSeerSystem.GetDeviceWithFeaturesByRef(devRef);
+			HomeSeerSystem.UpdatePropertyByRef(devRef, EProperty.Address, $"Shark:{dev.Dsn}");
 
-			HsDeviceMap map = new HsDeviceMap {SharkDevice = dev, HsDeviceRef = devRef, LastProperties = null};
+			return _createHsDeviceMissingFeatures(new HsDeviceMap {
+				SharkDevice = dev,
+				HsDeviceRef = devRef,
+				LastProperties = null,
+				HsFeatureRefStatus = null,
+				HsFeatureRefPowerMode = null,
+				HsFeatureRefBattery = null
+			});
+		}
 
-			foreach (HsFeature feature in hsDevice.Features) {
-				HomeSeerSystem.UpdatePropertyByRef(feature.Ref, EProperty.Address, $"Shark:{dev.Dsn}:{feature.Name.Replace(" ", "")}");
-				switch (feature.Name) {
-					case "Status":
-						map.HsFeatureRefStatus = feature.Ref;
-						break;
-					
-					case "Power Mode":
-						map.HsFeatureRefPowerMode = feature.Ref;
-						break;
-					
-					case "Battery":
-						map.HsFeatureRefBattery = feature.Ref;
-						break;
-				}
+		private HsDeviceMap _createHsDeviceMissingFeatures(HsDeviceMap map) {
+			string dsn = map.SharkDevice.Dsn;
+			
+			if (map.HsFeatureRefStatus == null) {
+				FeatureFactory statusFactory = FeatureFactory.CreateFeature(Id)
+					.OnDevice(map.HsDeviceRef)
+					.WithName("Status")
+					.AddGraphicForValue("/images/HomeSeer/status/off.gif", (double) HsStatus.Disconnected, "Offline")
+					.AddGraphicForValue("/images/HomeSeer/status/electricity.gif", (double) HsStatus.Charging, "Charging")
+					.AddGraphicForValue("/images/HomeSeer/status/ok.png", (double) HsStatus.FullyChargedOnDock,"Resting on Dock")
+					.AddGraphicForValue("/images/HomeSeer/status/electricity.gif", (double) HsStatus.ChargingToResume,"Charging to Resume")
+					.AddGraphicForValue("/images/HomeSeer/status/eject.png", (double) HsStatus.Evacuating, "Evacuating")
+					.AddGraphicForValue("/images/HomeSeer/status/pause.png", (double) HsStatus.NotRunning, "Paused")
+					.AddGraphicForValue("/images/HomeSeer/status/on.gif", (double) HsStatus.Running, "Cleaning")
+					.AddGraphicForValue("/images/HomeSeer/status/record.png", (double) HsStatus.SpotClean, "Spot Clean")
+					.AddGraphicForValue("/images/HomeSeer/status/refresh.png", (double) HsStatus.ReturnToDock, "Return To Dock")
+					.AddGraphicForValue("/images/HomeSeer/status/alarm.png", (double) HsStatus.Stuck, "Stuck")
+					.AddGraphicForValue("/images/HomeSeer/status/alarm.png", (double) HsStatus.UnknownError, "Unknown Error")
+					.AddButton((double) HsStatus.Running, "Clean")
+					.AddButton((double) HsStatus.NotRunning, "Pause")
+					.AddButton((double) HsStatus.ReturnToDock, "Dock")
+					.AddButton((double) HsStatus.ControlOnlyLocate, "Locate");
+
+				map.HsFeatureRefStatus = HomeSeerSystem.CreateFeatureForDevice(statusFactory.PrepareForHs());
+				HomeSeerSystem.UpdatePropertyByRef((int) map.HsFeatureRefStatus, EProperty.Address, $"Shark:{dsn}:Status");
+				WriteLog(ELogType.Info, $"Created feature {map.HsFeatureRefStatus} for Status on device {dsn}");
+			}
+
+			if (map.HsFeatureRefPowerMode == null) {
+				FeatureFactory powerModeFactory = FeatureFactory.CreateFeature(Id)
+					.OnDevice(map.HsDeviceRef)
+					.WithName("Power Mode")
+					.AddGraphicForValue("/images/HomeSeer/status/fan1.png", (double) SharkPowerMode.Eco, "Eco")
+					.AddGraphicForValue("/images/HomeSeer/status/fan2.png", (double) SharkPowerMode.Normal, "Normal")
+					.AddGraphicForValue("/images/HomeSeer/status/fan3.png", (double) SharkPowerMode.Max, "Max")
+					.AddButton((double) SharkPowerMode.Eco, "Eco")
+					.AddButton((double) SharkPowerMode.Normal, "Normal")
+					.AddButton((double) SharkPowerMode.Max, "Max");
+
+				map.HsFeatureRefPowerMode = HomeSeerSystem.CreateFeatureForDevice(powerModeFactory.PrepareForHs());
+				HomeSeerSystem.UpdatePropertyByRef((int) map.HsFeatureRefPowerMode, EProperty.Address, $"Shark:{dsn}:PowerMode");
+				WriteLog(ELogType.Info, $"Created feature {map.HsFeatureRefPowerMode} for PowerMode on device {dsn}");
+			}
+
+			if (map.HsFeatureRefBattery == null) {
+				FeatureFactory batteryFactory = FeatureFactory.CreateFeature(Id)
+					.OnDevice(map.HsDeviceRef)
+					.WithName("Battery")
+					.WithMiscFlags(EMiscFlag.StatusOnly)
+					.AddGraphicForRange("/images/HomeSeer/status/battery_0.png", 0, 3)
+					.AddGraphicForRange("/images/HomeSeer/status/battery_25.png", 4, 36)
+					.AddGraphicForRange("/images/HomeSeer/status/battery_50.png", 37, 64)
+					.AddGraphicForRange("/images/HomeSeer/status/battery_75.png", 65, 89)
+					.AddGraphicForRange("/images/HomeSeer/status/battery_100.png", 90, 100);
+
+				map.HsFeatureRefBattery = HomeSeerSystem.CreateFeatureForDevice(batteryFactory.PrepareForHs());
+				HomeSeerSystem.UpdatePropertyByRef((int) map.HsFeatureRefBattery, EProperty.Address, $"Shark:{dsn}:Battery");
+				WriteLog(ELogType.Info, $"Created feature {map.HsFeatureRefBattery} for Battery on device {dsn}");
 			}
 
 			return map;
@@ -388,11 +397,11 @@ namespace HSPI_SharkRobot
 							$"Retrieved properties for \"{props.DeviceName}\" ({deviceMap.SharkDevice.Dsn})");
 
 						// Update battery
-						HomeSeerSystem.UpdateFeatureValueByRef(deviceMap.HsFeatureRefBattery, props.BatteryCapacity);
-						HomeSeerSystem.UpdateFeatureValueStringByRef(deviceMap.HsFeatureRefBattery, props.BatteryCapacity + "%");
+						HomeSeerSystem.UpdateFeatureValueByRef((int) deviceMap.HsFeatureRefBattery, props.BatteryCapacity);
+						HomeSeerSystem.UpdateFeatureValueStringByRef((int) deviceMap.HsFeatureRefBattery, props.BatteryCapacity + "%");
 
 						// Update power mode
-						HomeSeerSystem.UpdateFeatureValueByRef(deviceMap.HsFeatureRefPowerMode, (double) props.PowerMode);
+						HomeSeerSystem.UpdateFeatureValueByRef((int) deviceMap.HsFeatureRefPowerMode, (double) props.PowerMode);
 
 #if DEBUG
 						JavaScriptSerializer json = new JavaScriptSerializer();
@@ -428,8 +437,8 @@ namespace HSPI_SharkRobot
 							status = HsStatus.NotRunning;
 						}
 
-						HomeSeerSystem.UpdateFeatureValueByRef(deviceMap.HsFeatureRefStatus, (double) status);
-						HomeSeerSystem.UpdateFeatureValueStringByRef(deviceMap.HsFeatureRefStatus,
+						HomeSeerSystem.UpdateFeatureValueByRef((int) deviceMap.HsFeatureRefStatus, (double) status);
+						HomeSeerSystem.UpdateFeatureValueStringByRef((int) deviceMap.HsFeatureRefStatus,
 							status == HsStatus.UnknownError ? "Unknown Error " + props.ErrorCode : "");
 
 						_devices[i].LastProperties = props;
