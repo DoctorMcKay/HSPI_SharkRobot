@@ -83,45 +83,30 @@ namespace HSPI_SharkRobot
 			foreach (ControlEvent ce in colSend) {
 				HsFeature feature = HomeSeerSystem.GetFeatureByRef(ce.TargetRef);
 				string[] addressParts = feature.Address.Split(':');
-				
-				HsDeviceMap? nullMap = null;
-				foreach (HsDeviceMap devMap in _devices) {
-					if (devMap.SharkDevice.Dsn == addressParts[1]) {
-						nullMap = devMap;
-						break;
-					}
-				}
 
-				if (nullMap == null) {
-					WriteLog(ELogType.Warning, $"Unable to find device with DSN {addressParts[1]} to control for ref {ce.TargetRef}");
-					continue;
-				}
-
-				HsDeviceMap map = (HsDeviceMap) nullMap;
-
-				int propKey = 0;
+				string propName = "";
 				int propVal = 0;
 
 				switch (addressParts[2]) {
 					case "Status":
 						switch ((HsStatus) ce.ControlValue) {
 							case HsStatus.ControlOnlyLocate:
-								propKey = map.LastProperties?.SetFindDeviceKey ?? 0;
+								propName = "SET_Find_Device";
 								propVal = 1;
 								break;
 							
 							case HsStatus.Running:
-								propKey = map.LastProperties?.SetOperatingModeKey ?? 0;
+								propName = "SET_Operating_Mode";
 								propVal = (int) SharkOperatingMode.Running;
 								break;
 							
 							case HsStatus.NotRunning:
-								propKey = map.LastProperties?.SetOperatingModeKey ?? 0;
+								propName = "SET_Operating_Mode";
 								propVal = (int) SharkOperatingMode.NotRunning;
 								break;
 							
 							case HsStatus.ReturnToDock:
-								propKey = map.LastProperties?.SetOperatingModeKey ?? 0;
+								propName = "SET_Operating_Mode";
 								propVal = (int) SharkOperatingMode.Dock;
 								break;
 						}
@@ -129,15 +114,15 @@ namespace HSPI_SharkRobot
 						break;
 					
 					case "PowerMode":
-						propKey = map.LastProperties?.SetPowerModeKey ?? 0;
+						propName = "SET_Power_Mode";
 						propVal = (int) ce.ControlValue;
 						break;
 				}
 
-				if (propKey == 0) {
+				if (propName.Length == 0) {
 					WriteLog(ELogType.Warning, $"Unknown property key for ref {ce.TargetRef}");
 				} else {
-					await _client.SetPropertyInt(propKey, propVal);
+					await _client.SetPropertyInt(addressParts[1], propName, propVal);
 				}
 			}
 		}

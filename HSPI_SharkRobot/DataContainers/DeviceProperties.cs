@@ -11,10 +11,5 @@ namespace HSPI_SharkRobot.DataContainers {
 		public int? ErrorCode;
 		public bool RechargingToResume;
 		public RoomList? RoomList;
-		
-		// Setter properties' keys
-		public int SetFindDeviceKey;
-		public int SetOperatingModeKey;
-		public int SetPowerModeKey;
 	}
 }

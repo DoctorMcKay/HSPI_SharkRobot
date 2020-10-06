@@ -241,41 +241,44 @@ namespace HSPI_SharkRobot {
 							}
 						}
 						break;
-					
-					case "SET_Find_Device":
-						output.SetFindDeviceKey = prop["property"]["key"];
-						break;
-					
-					case "SET_Operating_Mode":
-						output.SetOperatingModeKey = prop["property"]["key"];
-						break;
-					
-					case "SET_Power_Mode":
-						output.SetPowerModeKey = prop["property"]["key"];
-						break;
 				}
 			}
 
 			return output;
 		}
 
-		public async Task<string> SetPropertyInt(int propertyKey, int desiredValue) {
+		public async Task<string> SetPropertyInt(string dsn, string property, int desiredValue) {
 			SetPropertyIntBody body = new SetPropertyIntBody {
 				datapoint = new SetPropertyIntBody.DatapointValue {
 					value = desiredValue
 				}
 			};
+
+			_hs.WriteLog(ELogType.Trace, $"Setting property {dsn}:{property} value to int {desiredValue}");
+			return await _setProperty(dsn, property, _jsonSerializer.Serialize(body));
+		}
+
+		public async Task<string> SetPropertyString(string dsn, string property, string desiredValue) {
+			SetPropertyStringBody body = new SetPropertyStringBody {
+				datapoint = new SetPropertyStringBody.DatapointValue {
+					value = desiredValue
+				}
+			};
 			
-			_hs.WriteLog(ELogType.Trace, $"Setting property {propertyKey} value to int {desiredValue}");
-			
-			HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, $"https://ads-field.aylanetworks.com/apiv1/properties/{propertyKey}/datapoints.json");
+			_hs.WriteLog(ELogType.Trace, $"Setting property {dsn}:{property} to string \"{desiredValue}\"");
+			return await _setProperty(dsn, property, _jsonSerializer.Serialize(body));
+		}
+		
+		private async Task<string> _setProperty(string dsn, string property, string serializedBody) {
+			string url = $"https://ads-field.aylanetworks.com/apiv1/dsns/{dsn}/properties/{property}/datapoints.json";
+			HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, url);
 			req.Headers.Add("Authorization", "auth_token " + AccessToken);
-			req.Content = new StringContent(_jsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+			req.Content = new StringContent(serializedBody, Encoding.UTF8, "application/json");
 			
 			HttpResponseMessage res = await _httpClient.SendAsync(req);
 			HttpStatusCode statusCode = res.StatusCode;
 			
-			_hs.WriteLog(ELogType.Trace, $"Setting property {propertyKey} status: {statusCode}");
+			_hs.WriteLog(ELogType.Trace, $"Setting property {dsn}:{property} status: {statusCode}");
 			
 			if (!res.IsSuccessStatusCode) {
 				req.Dispose();
