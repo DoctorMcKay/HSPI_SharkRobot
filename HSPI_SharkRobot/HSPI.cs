@@ -26,10 +26,12 @@ namespace HSPI_SharkRobot
 		private Timer _refreshTimer;
 		private Timer _pollTimer;
 		private DateTime _lastTokenRefresh;
+		private readonly Dictionary<int, double> _featureValueCache;
 		private bool _debugLogging;
 
 		public HSPI() {
 			_lastTokenRefresh = DateTime.Now;
+			_featureValueCache = new Dictionary<int, double>();
 		}
 
 		protected override void Initialize() {
@@ -397,11 +399,10 @@ namespace HSPI_SharkRobot
 							$"Retrieved properties for \"{props.DeviceName}\" ({deviceMap.SharkDevice.Dsn})");
 
 						// Update battery
-						HomeSeerSystem.UpdateFeatureValueByRef((int) deviceMap.HsFeatureRefBattery, props.BatteryCapacity);
-						HomeSeerSystem.UpdateFeatureValueStringByRef((int) deviceMap.HsFeatureRefBattery, props.BatteryCapacity + "%");
+						_updateFeatureValue((int) deviceMap.HsFeatureRefBattery, props.BatteryCapacity, props.BatteryCapacity + "%");
 
 						// Update power mode
-						HomeSeerSystem.UpdateFeatureValueByRef((int) deviceMap.HsFeatureRefPowerMode, (double) props.PowerMode);
+						_updateFeatureValue((int) deviceMap.HsFeatureRefPowerMode, (double) props.PowerMode);
 
 #if DEBUG
 						JavaScriptSerializer json = new JavaScriptSerializer();
@@ -437,10 +438,7 @@ namespace HSPI_SharkRobot
 							status = HsStatus.NotRunning;
 						}
 
-						HomeSeerSystem.UpdateFeatureValueByRef((int) deviceMap.HsFeatureRefStatus, (double) status);
-						HomeSeerSystem.UpdateFeatureValueStringByRef((int) deviceMap.HsFeatureRefStatus,
-							status == HsStatus.UnknownError ? "Unknown Error " + props.ErrorCode : "");
-
+						_updateFeatureValue((int) deviceMap.HsFeatureRefStatus, (double) status, status == HsStatus.UnknownError ? "Unknown Error " + props.ErrorCode : "");
 						_devices[i].LastProperties = props;
 					} catch (Exception ex) {
 						string errMsg = ex.Message;
@@ -464,6 +462,19 @@ namespace HSPI_SharkRobot
 				
 				_enqueuePoll();
 			};
+		}
+
+		private void _updateFeatureValue(int devRef, double value, string stringValue = null) {
+			if (Math.Abs(_featureValueCache[devRef] - value) <= 0.01) {
+				return; // no change
+			}
+
+			HomeSeerSystem.UpdateFeatureValueByRef(devRef, value);
+			if (stringValue != null) {
+				HomeSeerSystem.UpdateFeatureValueStringByRef(devRef, stringValue);
+			}
+
+			_featureValueCache[devRef] = value;
 		}
 
 		protected override void BeforeReturnStatus() {
