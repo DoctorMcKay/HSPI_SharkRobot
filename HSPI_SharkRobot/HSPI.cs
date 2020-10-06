@@ -395,8 +395,7 @@ namespace HSPI_SharkRobot
 						HsDeviceMap deviceMap = _devices[i];
 						DeviceProperties props = await _client.GetDeviceProperties(deviceMap.SharkDevice.Dsn);
 
-						WriteLog(ELogType.Debug,
-							$"Retrieved properties for \"{props.DeviceName}\" ({deviceMap.SharkDevice.Dsn})");
+						WriteLog(ELogType.Debug, $"Retrieved properties for \"{props.DeviceName}\" ({deviceMap.SharkDevice.Dsn})");
 
 						// Update battery
 						_updateFeatureValue((int) deviceMap.HsFeatureRefBattery, props.BatteryCapacity, props.BatteryCapacity + "%");

@@ -10,6 +10,7 @@ namespace HSPI_SharkRobot.DataContainers {
 		public bool DockedStatus;
 		public int? ErrorCode;
 		public bool RechargingToResume;
+		public string? MobileAppRoomDefinition;
 		
 		// Setter properties' keys
 		public int SetFindDeviceKey;

@@ -137,18 +137,14 @@ namespace HSPI_SharkRobot {
 		}
 
 		public async Task<Device[]> GetDevices() {
-			HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Get, "https://ads-field.aylanetworks.com/apiv1/devices.json");
-			req.Headers.Add("Authorization", "auth_token " + AccessToken);
-			HttpResponseMessage res = await _httpClient.SendAsync(req);
+			HttpResponseMessage res = await _getUrl("https://ads-field.aylanetworks.com/apiv1/devices.json");
 			HttpStatusCode statusCode = res.StatusCode;
 			if (!res.IsSuccessStatusCode) {
-				req.Dispose();
 				res.Dispose();
 				throw new Exception($"Unsuccessful status {statusCode}");
 			}
 
 			string responseString = await res.Content.ReadAsStringAsync();
-			req.Dispose();
 			res.Dispose();
 
 			dynamic response = _jsonSerializer.DeserializeObject(responseString);
@@ -185,18 +181,14 @@ namespace HSPI_SharkRobot {
 		}
 
 		public async Task<DeviceProperties> GetDeviceProperties(string dsn) {
-			HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Get, $"https://ads-field.aylanetworks.com/apiv1/dsns/{dsn}/properties.json");
-			req.Headers.Add("Authorization", "auth_token " + AccessToken);
-			HttpResponseMessage res = await _httpClient.SendAsync(req);
+			HttpResponseMessage res = await _getUrl($"https://ads-field.aylanetworks.com/apiv1/dsns/{dsn}/properties.json");
 			HttpStatusCode statusCode = res.StatusCode;
 			if (!res.IsSuccessStatusCode) {
-				req.Dispose();
 				res.Dispose();
 				throw new Exception($"Unsuccessful status {statusCode}");
 			}
 
 			string responseString = await res.Content.ReadAsStringAsync();
-			req.Dispose();
 			res.Dispose();
 
 			dynamic response = _jsonSerializer.DeserializeObject(responseString);
@@ -233,6 +225,10 @@ namespace HSPI_SharkRobot {
 					
 					case "GET_Recharging_To_Resume":
 						output.RechargingToResume = prop["property"]["value"] != 0;
+						break;
+					
+					case "Mobile_App_Room_Definition":
+						output.MobileAppRoomDefinition = prop["property"]["value"];
 						break;
 					
 					case "SET_Find_Device":
@@ -280,6 +276,41 @@ namespace HSPI_SharkRobot {
 			res.Dispose();
 			
 			return "";
+		}
+
+		public async Task<string[]> GetRoomList(string dsn) {
+			DeviceProperties props = await GetDeviceProperties(dsn);
+			if (props.MobileAppRoomDefinition == null) {
+				throw new Exception("No mobile app room definition found");
+			}
+
+			dynamic datapoint = _jsonSerializer.DeserializeObject(await (await _getUrl(props.MobileAppRoomDefinition)).Content.ReadAsStringAsync());
+			RoomDefinitions defs = _jsonSerializer.Deserialize(await (await _getUrl(datapoint["datapoint"]["file"], false)).Content.ReadAsStringAsync(), typeof(RoomDefinitions));
+			string[] roomNames = new string[defs.goZones.Length];
+			for (int i = 0; i < defs.goZones.Length; i++) {
+				roomNames[i] = defs.goZones[i].name;
+			}
+
+			return roomNames;
+		}
+
+		private async Task<HttpResponseMessage> _getUrl(string url, bool withAuth = true) {
+			_hs.WriteLog(ELogType.Trace, $"Requesting {url}");
+			HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Get, url);
+			if (withAuth) {
+				req.Headers.Add("Authorization", "auth_token " + AccessToken);
+			}
+
+			HttpResponseMessage res = await _httpClient.SendAsync(req);
+			req.Dispose();
+
+			if (!res.IsSuccessStatusCode) {
+				string msg = $"Unsuccessful status {res.StatusCode}";
+				res.Dispose();
+				throw new Exception(msg);
+			}
+			
+			return res;
 		}
 	}
 }
