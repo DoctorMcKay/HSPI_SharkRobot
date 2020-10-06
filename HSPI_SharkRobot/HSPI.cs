@@ -465,7 +465,7 @@ namespace HSPI_SharkRobot
 		}
 
 		private void _updateFeatureValue(int devRef, double value, string stringValue = null) {
-			if (Math.Abs(_featureValueCache[devRef] - value) <= 0.01) {
+			if (_featureValueCache.ContainsKey(devRef) && Math.Abs(_featureValueCache[devRef] - value) <= 0.01) {
 				return; // no change
 			}
 
@@ -473,7 +473,7 @@ namespace HSPI_SharkRobot
 			if (stringValue != null) {
 				HomeSeerSystem.UpdateFeatureValueStringByRef(devRef, stringValue);
 			}
-
+			
 			_featureValueCache[devRef] = value;
 		}
 
