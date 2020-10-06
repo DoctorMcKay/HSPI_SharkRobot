@@ -1,0 +1,2 @@
+HSPI_SharkRobot.exe,.,0
+HSPI_SharkRobot.exe.config,.,0

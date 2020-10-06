@@ -11,7 +11,7 @@ jobs:
     - uses: actions/checkout@v1
     
     - name: Setup msbuild
-      uses: warrenbuckley/Setup-MSBuild@v1
+      uses: microsoft/setup-msbuild@v1.0.1
       
     - name: Setup nuget
       uses: warrenbuckley/Setup-Nuget@v1
@@ -29,13 +29,22 @@ jobs:
         mkdir artifacts
         cp HSPI_SharkRobot\bin\Release\HSPI_SharkRobot.exe artifacts\HSPI_SharkRobot.exe
         cp HSPI_SharkRobot.exe.config artifacts\HSPI_SharkRobot.exe.config
-        mkdir "artifacts\Debug Build"
-        cp HSPI_SharkRobot\bin\Debug\HSPI_SharkRobot.exe "artifacts\Debug Build\HSPI_SharkRobot.exe"
+        cp install.txt artifacts\install.txt
+    
+    - name: Stage debug artifacts
+      run: |
+        mkdir artifacts-debug
+        cp HSPI_SharkRobot\bin\Debug\HSPI_SharkRobot.exe "artifacts-debug\HSPI_SharkRobot.exe"
+        cp HSPI_SharkRobot.exe.config artifacts-debug\HSPI_SharkRobot.exe.config
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v1
       with:
         name: Plugin
         path: artifacts
-
-
+    
+    - name: Upload debug artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        name: Debug Build
+        path: artifacts-debug
