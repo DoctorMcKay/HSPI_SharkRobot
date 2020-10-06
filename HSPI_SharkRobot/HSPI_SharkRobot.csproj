@@ -54,6 +54,7 @@
         <Reference Include="System.Xml" />
     </ItemGroup>
     <ItemGroup>
+        <Compile Include="AnalyticsClient.cs" />
         <Compile Include="AylaClient.cs" />
         <Compile Include="DataContainers\Device.cs" />
         <Compile Include="DataContainers\DeviceProperties.cs" />

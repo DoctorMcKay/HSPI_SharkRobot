@@ -25,26 +25,37 @@ namespace HSPI_SharkRobot
 		private Timer _loginTimer = null;
 		private Timer _refreshTimer = null;
 		private Timer _pollTimer = null;
+		private DateTime _lastTokenRefresh;
 		private bool _debugLogging = false;
+
+		public HSPI() {
+			_lastTokenRefresh = DateTime.Now;
+		}
 
 		protected override void Initialize() {
 			WriteLog(ELogType.Debug, "Initialize");
+
+			AnalyticsClient analytics = new AnalyticsClient(this, HomeSeerSystem);
 			
 			// Build the settings page
 			PageFactory settingsPageFactory = PageFactory
 				.CreateSettingsPage("SharkRobotSettings", "Shark Robot Settings")
-				.WithLabel("shark_api_note", "Note", "If you update your email, you MUST also provide your password, even if it didn't change.")
+				.WithLabel("plugin_status", "Status (refresh to update)", "x")
 				.WithInput("shark_api_email", "Shark Account Email")
 				.WithInput("shark_api_password", "Shark Account Password", EInputType.Password)
+				.WithLabel("shark_api_note", "If you update your email, you MUST also provide your password, even if it didn't change.")
+				.WithGroup("debug_group", "<hr>", new AbstractView[] {
+					new LabelView("debug_system_id", "System ID (include this with any support requests)", analytics.CustomSystemId),
 #if DEBUG
-				.WithLabel("debug_log", "Enable Debug Logging", "ON - DEBUG BUILD");
+					new LabelView("debug_log", "Enable Debug Logging", "ON - DEBUG BUILD")
 #else
-				.WithToggle("debug_log", "Enable Debug Logging");
+					new ToggleView("debug_log", "Enable Debug Logging")
 #endif
+				});
 			
 			Settings.Add(settingsPageFactory.Page);
 
-			Status = PluginStatus.Ok();
+			Status = PluginStatus.Info("Initializing...");
 
 			_client = new AylaClient(this);
 			_debugLogging = HomeSeerSystem.GetINISetting("Debug", "debug_log", "0", SettingsFileName) == "1";
@@ -60,6 +71,8 @@ namespace HSPI_SharkRobot
 			} else {
 				Status = PluginStatus.Critical("No credentials configured");
 			}
+
+			analytics.ReportIn(5000);
 		}
 
 		public override async void SetIOMulti(List<ControlEvent> colSend) {
@@ -130,7 +143,8 @@ namespace HSPI_SharkRobot
 		private async void _refreshLogin() {
 			// Cancel polling
 			_pollTimer?.Stop();
-			
+			_lastTokenRefresh = DateTime.Now;
+
 			WriteLog(ELogType.Info, "Obtaining new access token using refresh token");
 			string errMsg = await _client.LoginWithTokens();
 			if (errMsg.Length > 0) {
@@ -246,8 +260,13 @@ namespace HSPI_SharkRobot
 
 		protected override void OnSettingsLoad() {
 			// Called when the settings page is loaded. Use to pre-fill the inputs.
+			string statusText = Status.Status.ToString().ToUpper();
+			if (Status.StatusText.Length > 0) {
+				statusText += ": " + Status.StatusText;
+			}
 			string acctEmail = HomeSeerSystem.GetINISetting("Credentials", "email", "", SettingsFileName);
 			string acctToken = HomeSeerSystem.GetINISetting("Credentials", "refresh_token", "", SettingsFileName);
+			((LabelView) Settings.Pages[0].GetViewById("plugin_status")).Value = statusText;
 			Settings.Pages[0].GetViewById("shark_api_email").UpdateValue(acctEmail);
 			Settings.Pages[0].GetViewById("shark_api_password").UpdateValue(acctToken.Length == 0 && _loginTimer == null ? "" : "*****");
 		}
@@ -276,6 +295,7 @@ namespace HSPI_SharkRobot
 						return true; // no change
 					}
 
+					Status = PluginStatus.Info("Logging in...");
 					_enqueuePasswordLogin(password);
 					return true;
 				
@@ -334,7 +354,7 @@ namespace HSPI_SharkRobot
 		}
 
 		private async void _enqueuePoll(bool immediate = false) {
-			if (DateTime.Now.AddMinutes(5).CompareTo(_client.TokenExpirationTime) >= 0) {
+			if (_client.TokenExpirationTime.Subtract(DateTime.Now).TotalMinutes <= 5) {
 				// Token expires in 5 minutes or less
 				WriteLog(ELogType.Debug, $"Refreshing access token, which expires {_client.TokenExpirationTime}");
 				try {
@@ -356,6 +376,8 @@ namespace HSPI_SharkRobot
 			_pollTimer.Elapsed += async (object src, ElapsedEventArgs a) => {
 				_pollTimer = null;
 				WriteLog(ELogType.Trace, "Performing poll");
+
+				PluginStatus newStatus = PluginStatus.Ok();
 				
 				for (int i = 0; i < _devices.Length; i++) {
 					try {
@@ -417,12 +439,19 @@ namespace HSPI_SharkRobot
 						while ((inner = inner.InnerException) != null) {
 							errMsg = $"{errMsg} [{inner.Message}]";
 						}
-						
-						WriteLog(ELogType.Error, $"Unable to retrieve properties for device {_devices[i].SharkDevice.Dsn}: {errMsg}");
+
+						string logMsg = $"Unable to retrieve properties for device {_devices[i].SharkDevice.Dsn}: {errMsg}";
+						WriteLog(ELogType.Error, logMsg);
+						newStatus = PluginStatus.Warning(logMsg);
+
+						// Only attempt refreshing tokens once every 5 minutes
+						if (ex.Message == "Unsuccessful status Unauthorized" && DateTime.Now.Subtract(_lastTokenRefresh).TotalMinutes >= 5) {
+							_refreshLogin();
+						}
 					}
 				}
-				
-				Status = PluginStatus.Ok();
+
+				Status = newStatus;
 				
 				_enqueuePoll();
 			};
