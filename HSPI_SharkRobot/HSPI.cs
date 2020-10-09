@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Timers;
 using System.Web.Script.Serialization;
 using HomeSeer.Jui.Types;
@@ -37,14 +38,13 @@ namespace HSPI_SharkRobot
 			WriteLog(ELogType.Debug, "Initialize");
 
 			AnalyticsClient analytics = new AnalyticsClient(this, HomeSeerSystem);
-			
+
 			// Build the settings page
 			PageFactory settingsPageFactory = PageFactory
 				.CreateSettingsPage("SharkRobotSettings", "Shark Robot Settings")
 				.WithLabel("plugin_status", "Status (refresh to update)", "x")
 				.WithInput("shark_api_email", "Shark Account Email")
 				.WithInput("shark_api_password", "Shark Account Password", EInputType.Password)
-				.WithLabel("shark_api_note", "If you update your email, you MUST also provide your password, even if it didn't change.")
 				.WithGroup("debug_group", "<hr>", new AbstractView[] {
 					new LabelView("debug_system_id", "System ID (include this with any support requests)", analytics.CustomSystemId),
 #if DEBUG
@@ -136,7 +136,12 @@ namespace HSPI_SharkRobot
 			if (errMsg.Length > 0) {
 				WriteLog(ELogType.Error, $"Failure refreshing login: {errMsg}");
 				Status = PluginStatus.Critical(errMsg);
-				_enqueueRefreshLogin();
+				if (errMsg.Contains("Unauthorized")) {
+					_enqueuePasswordLogin();
+				} else {
+					_enqueueRefreshLogin();
+				}
+
 				return;
 			}
 			
@@ -260,10 +265,10 @@ namespace HSPI_SharkRobot
 				statusText += ": " + Status.StatusText;
 			}
 			string acctEmail = HomeSeerSystem.GetINISetting("Credentials", "email", "", SettingsFileName);
-			string acctToken = HomeSeerSystem.GetINISetting("Credentials", "refresh_token", "", SettingsFileName);
+			string acctPasswordObfuscated = HomeSeerSystem.GetINISetting("Credentials", "password", "", SettingsFileName);
 			((LabelView) Settings.Pages[0].GetViewById("plugin_status")).Value = statusText;
 			Settings.Pages[0].GetViewById("shark_api_email").UpdateValue(acctEmail);
-			Settings.Pages[0].GetViewById("shark_api_password").UpdateValue(acctToken.Length == 0 && _loginTimer == null ? "" : "*****");
+			Settings.Pages[0].GetViewById("shark_api_password").UpdateValue(acctPasswordObfuscated.Length == 0 && _loginTimer == null ? "" : "*****");
 		}
 
 		protected override bool OnSettingChange(string pageId, AbstractView currentView, AbstractView changedView) {
@@ -290,8 +295,9 @@ namespace HSPI_SharkRobot
 						return true; // no change
 					}
 
+					HomeSeerSystem.SaveINISetting("Credentials", "password", _obfuscateString(password), SettingsFileName);
 					Status = PluginStatus.Info("Logging in...");
-					_enqueuePasswordLogin(password);
+					_enqueuePasswordLogin();
 					return true;
 				
 				case "debug_log":
@@ -303,7 +309,38 @@ namespace HSPI_SharkRobot
 			return false;
 		}
 
-		private void _enqueuePasswordLogin(string password) {
+		private string _obfuscateString(string str) {
+			// This doesn't really provide any serious security, but it prevents casual sniffing of the ini file
+			byte[] key = {0x97, 0xc3, 0xd1, 0xe6, 0xd0, 0xb3, 0x77, 0x3a};
+			byte[] strBytes = Encoding.UTF8.GetBytes(str);
+			byte[] obfuscated = new byte[strBytes.Length];
+			for (int i = 0; i < strBytes.Length; i++) {
+				obfuscated[i] = (byte) (strBytes[i] ^ key[i % key.Length]);
+			}
+
+			return Convert.ToBase64String(obfuscated);
+		}
+
+		private string _unobfuscateString(string str) {
+			byte[] key = {0x97, 0xc3, 0xd1, 0xe6, 0xd0, 0xb3, 0x77, 0x3a};
+			byte[] obfuscated = Convert.FromBase64String(str);
+			byte[] strBytes = new byte[obfuscated.Length];
+			for (int i = 0; i < obfuscated.Length; i++) {
+				strBytes[i] = (byte) (obfuscated[i] ^ key[i % key.Length]);
+			}
+
+			return Encoding.UTF8.GetString(strBytes);
+		}
+
+		private void _enqueuePasswordLogin() {
+			string password = HomeSeerSystem.GetINISetting("Credentials", "password", "", SettingsFileName);
+			if (password.Length == 0) {
+				Status = PluginStatus.Fatal("No password set");
+				return;
+			}
+
+			password = _unobfuscateString(password);
+			
 			WriteLog(ELogType.Debug, "Enqueueing password login");
 			_loginTimer?.Stop();
 
