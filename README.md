@@ -18,11 +18,6 @@ Plugins > Shark Robot > Settings. Enter your Shark cloud credentials and click S
 at the top of the page will change to "Logging in...". Refresh the page after a few seconds to
 update the status and make sure the status is "OK".
 
-**Your account password is not stored.** After the plugin logs in, your password is discarded and
-only the authentication tokens returned by the cloud service are stored. Therefore, if you change
-your Shark cloud account login email, you will need to provide both your new email and your password,
-even if your password did not change.
-
 Once the plugin successfully logs into the Shark cloud service, it will automatically create
 devices in HS4 for each robot in your cloud account.
 
