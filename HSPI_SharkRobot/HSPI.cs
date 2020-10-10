@@ -468,6 +468,7 @@ namespace HSPI_SharkRobot
 								default:
 									status = HsStatus.UnknownError;
 									statusText = "Unknown Error " + props.ErrorCode;
+									break;
 							}
 						} else {
 							// No status matched, just fall back to "not running"
