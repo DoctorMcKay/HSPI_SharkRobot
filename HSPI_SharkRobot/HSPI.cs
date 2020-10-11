@@ -409,7 +409,7 @@ namespace HSPI_SharkRobot
 
 			WriteLog(ELogType.Trace, $"Enqueueing poll (access token expires {_client.TokenExpirationTime})");
 			
-			_pollTimer = new Timer(immediate || _fastPollUntil.Subtract(DateTime.Now).TotalSeconds <= 0 ? 1000 : 10000)
+			_pollTimer = new Timer(immediate || _fastPollUntil.Subtract(DateTime.Now).TotalSeconds > 0 ? 1000 : 10000)
 				{Enabled = true, AutoReset = false};
 			_pollTimer.Elapsed += async (src, arg) => {
 				_pollTimer = null;
