@@ -438,6 +438,7 @@ namespace HSPI_SharkRobot
 						// Figure out status
 						// TODO figure out disconnected
 						HsStatus status;
+						string statusText = "";
 						if ((props.ChargingStatus || props.DockedStatus) && props.BatteryCapacity == 100 && !props.RechargingToResume) {
 							// We're docked and battery is full
 							status = HsStatus.FullyChargedOnDock;
@@ -453,12 +454,28 @@ namespace HSPI_SharkRobot
 						} else if (props.OperatingMode == SharkOperatingMode.Dock && !props.DockedStatus) {
 							// Returning to dock
 							status = HsStatus.ReturnToDock;
-						} else if (props.ErrorCode == 5 || props.ErrorCode == 6 || props.ErrorCode == 8) {
-							// Stuck (could be other error codes too)
-							status = HsStatus.Stuck;
 						} else if (props.ErrorCode > 0) {
-							// Unknown error code
-							status = HsStatus.UnknownError;
+							switch (props.ErrorCode) {
+								case 5:
+								case 8:
+									status = HsStatus.Stuck;
+									break;
+									
+								case 6:
+									status = HsStatus.Stuck;
+									statusText = "Bumper Stuck";
+									break;
+									
+								case 9:
+									status = HsStatus.UnknownError;
+									statusText = "Dustbin Missing";
+									break;
+								
+								default:
+									status = HsStatus.UnknownError;
+									statusText = "Unknown Error " + props.ErrorCode;
+									break;
+							}
 						} else {
 							// No status matched, just fall back to "not running"
 							status = HsStatus.NotRunning;
