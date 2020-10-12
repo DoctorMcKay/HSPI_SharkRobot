@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Text;
@@ -41,6 +42,8 @@ namespace HSPI_SharkRobot {
 
 		public async void Report() {
 			try {
+				ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
+				
 				JavaScriptSerializer json = new JavaScriptSerializer();
 				HttpClient client = new HttpClient();
 				HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, ReportUrl) {

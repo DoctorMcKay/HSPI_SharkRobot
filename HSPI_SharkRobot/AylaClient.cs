@@ -28,6 +28,8 @@ namespace HSPI_SharkRobot {
 			
 			_httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
 			_httpClient.DefaultRequestHeaders.Add("User-Agent", "Dalvik/2.1.0 (Linux; U; Android 8.1.0; Pixel XL Build/OPM4.171019.021.D1)");
+			
+			ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
 		}
 
 		public async Task<string> LoginWithPassword(string email, string password) {
