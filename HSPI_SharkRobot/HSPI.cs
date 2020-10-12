@@ -25,11 +25,13 @@ namespace HSPI_SharkRobot
 		private Timer _loginTimer;
 		private Timer _refreshTimer;
 		private Timer _pollTimer;
+		private DateTime _fastPollUntil;
 		private DateTime _lastTokenRefresh;
 		private readonly Dictionary<int, double> _featureValueCache;
 		private bool _debugLogging;
 
 		public HSPI() {
+			_fastPollUntil = DateTime.MinValue;
 			_lastTokenRefresh = DateTime.Now;
 			_featureValueCache = new Dictionary<int, double>();
 		}
@@ -122,6 +124,8 @@ namespace HSPI_SharkRobot
 					WriteLog(ELogType.Warning, $"Unknown property key for ref {ce.TargetRef}");
 				} else {
 					await _client.SetPropertyInt(addressParts[1], propName, propVal);
+					_fastPollUntil = DateTime.Now.AddSeconds(10);
+					_enqueuePoll(true);
 				}
 			}
 		}
@@ -386,6 +390,8 @@ namespace HSPI_SharkRobot
 		}
 
 		private async void _enqueuePoll(bool immediate = false) {
+			_pollTimer?.Stop();
+			
 			if (_client.TokenExpirationTime.Subtract(DateTime.Now).TotalMinutes <= 5) {
 				// Token expires in 5 minutes or less
 				WriteLog(ELogType.Debug, $"Refreshing access token, which expires {_client.TokenExpirationTime}");
@@ -401,10 +407,10 @@ namespace HSPI_SharkRobot
 				}
 			}
 
-			WriteLog(ELogType.Trace, $"Enqueueing poll (access token expires {_client.TokenExpirationTime})");
-
-			_pollTimer?.Stop();
-			_pollTimer = new Timer(immediate ? 1000 : 10000) {Enabled = true, AutoReset = false};
+			double pollTime = immediate || _fastPollUntil.Subtract(DateTime.Now).TotalSeconds > 0 ? 1000 : 10000;
+			WriteLog(ELogType.Trace, $"Enqueueing poll in {pollTime} ms (access token expires {_client.TokenExpirationTime})");
+			
+			_pollTimer = new Timer(pollTime) {Enabled = true, AutoReset = false};
 			_pollTimer.Elapsed += async (src, arg) => {
 				_pollTimer = null;
 				WriteLog(ELogType.Trace, "Performing poll");
