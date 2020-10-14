@@ -48,6 +48,7 @@ namespace HSPI_SharkRobot
 				.WithInput("shark_api_email", "Shark Account Email")
 				.WithInput("shark_api_password", "Shark Account Password", EInputType.Password)
 				.WithGroup("debug_group", "<hr>", new AbstractView[] {
+					new LabelView("debug_support_link", "Support and Documentation", "<a href=\"https://forums.homeseer.com/forum/hs4-products/hs4-plugins/robotics-plug-ins-aa/shark-robot-dr-mckay\" target=\"_blank\">HomeSeer Forum</a>"),
 					new LabelView("debug_system_id", "System ID (include this with any support requests)", analytics.CustomSystemId),
 #if DEBUG
 					new LabelView("debug_log", "Enable Debug Logging", "ON - DEBUG BUILD")

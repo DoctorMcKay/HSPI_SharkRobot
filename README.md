@@ -9,7 +9,7 @@ it will also work with the Shark ION Robot.
 
 # Installation
 
-This plugin is **not yet available** in the HomeSeer plugin updater.
+This plugin is available in the HomeSeer plugin updater.
 
 # Configuration
 
