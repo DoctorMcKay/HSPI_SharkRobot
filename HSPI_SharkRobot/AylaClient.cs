@@ -12,6 +12,8 @@ namespace HSPI_SharkRobot {
 	public class AylaClient {
 		private const string AppId = "Shark-Android-field-id";
 		private const string AppSecret = "Shark-Android-field-Wv43MbdXRM297HUHotqe6lU1n-w";
+		private const string UserDomain = "user-field-39a9391a.aylanetworks.com";
+		private const string AppDomain = "ads-field-39a9391a.aylanetworks.com";
 
 		public string AccessToken;
 		public string RefreshToken;
@@ -44,7 +46,7 @@ namespace HSPI_SharkRobot {
 				}
 			};
 			
-			HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, "https://user-field.aylanetworks.com/users/sign_in.json");
+			HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, $"https://{UserDomain}/users/sign_in.json");
 			req.Headers.Add("Authorization", "none");
 
 			req.Content = new StringContent(_jsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
@@ -94,7 +96,7 @@ namespace HSPI_SharkRobot {
 				}
 			};
 			
-			HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, "https://user-field.aylanetworks.com/users/refresh_token.json");
+			HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, $"https://{UserDomain}/users/refresh_token.json");
 			req.Headers.Add("Authorization", "auth_token " + AccessToken);
 			
 			req.Content = new StringContent(_jsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
@@ -139,7 +141,7 @@ namespace HSPI_SharkRobot {
 		}
 
 		public async Task<Device[]> GetDevices() {
-			HttpResponseMessage res = await _getUrl("https://ads-field.aylanetworks.com/apiv1/devices.json");
+			HttpResponseMessage res = await _getUrl($"https://{AppDomain}/apiv1/devices.json");
 			HttpStatusCode statusCode = res.StatusCode;
 			if (!res.IsSuccessStatusCode) {
 				res.Dispose();
@@ -183,7 +185,7 @@ namespace HSPI_SharkRobot {
 		}
 
 		public async Task<DeviceProperties> GetDeviceProperties(string dsn) {
-			HttpResponseMessage res = await _getUrl($"https://ads-field.aylanetworks.com/apiv1/dsns/{dsn}/properties.json");
+			HttpResponseMessage res = await _getUrl($"https://{AppDomain}/apiv1/dsns/{dsn}/properties.json");
 			HttpStatusCode statusCode = res.StatusCode;
 			if (!res.IsSuccessStatusCode) {
 				res.Dispose();
@@ -272,7 +274,7 @@ namespace HSPI_SharkRobot {
 		}
 		
 		private async Task<string> _setProperty(string dsn, string property, string serializedBody) {
-			string url = $"https://ads-field.aylanetworks.com/apiv1/dsns/{dsn}/properties/{property}/datapoints.json";
+			string url = $"https://{AppDomain}/apiv1/dsns/{dsn}/properties/{property}/datapoints.json";
 			HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, url);
 			req.Headers.Add("Authorization", "auth_token " + AccessToken);
 			req.Content = new StringContent(serializedBody, Encoding.UTF8, "application/json");
